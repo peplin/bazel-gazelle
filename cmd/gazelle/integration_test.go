@@ -3073,13 +3073,6 @@ require (
 )
 `,
 		},
-		{
-			Path: "go.sum",
-			Content: `
-github.com/Selvatico/go-mocket v1.0.7/go.mod h1:4gO2v+uQmsL+jzQgLANy3tyEFzaEzHlymVbZ3GP2Oes=
-github.com/selvatico/go-mocket v1.0.7/go.mod h1:7bSWzuNieCdUlanCVu3w0ppS0LvDtPAZmKBIlhoTcp8=
-`,
-		},
 	}
 	dir, cleanup := testtools.CreateFiles(t, files)
 	defer cleanup()
@@ -3112,12 +3105,6 @@ require (
 )
 
 replace github.com/selvatico/go-mocket => github.com/Selvatico/go-mocket v1.0.7
-`,
-		},
-		{
-			Path: "go.sum",
-			Content: `
-github.com/Selvatico/go-mocket v1.0.7/go.mod h1:4gO2v+uQmsL+jzQgLANy3tyEFzaEzHlymVbZ3GP2Oes=
 `,
 		},
 	}
@@ -3184,12 +3171,6 @@ require (
 )
 
 replace github.com/selvatico/go-mocket => github.com/Selvatico/go-mocket v1.0.7
-`,
-		},
-		{
-			Path: "go.sum",
-			Content: `
-github.com/Selvatico/go-mocket v1.0.7/go.mod h1:4gO2v+uQmsL+jzQgLANy3tyEFzaEzHlymVbZ3GP2Oes=
 `,
 		},
 	}
