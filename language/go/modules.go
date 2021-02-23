@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"go/build"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -36,7 +37,13 @@ import (
 )
 
 func importReposFromModules(args language.ImportReposArgs) language.ImportReposResult {
-	dir := filepath.Dir(args.Path)
+	// Copy go.mod to temporary directory. We may run commands that modify it,
+	// and we want to leave the original alone.
+	tempDir, err := copyGoModToTemp(args.Path)
+	if err != nil {
+		return language.ImportReposResult{Error: err}
+	}
+	defer os.RemoveAll(tempDir)
 
 	// List all modules except for the main module, including implicit indirect
 	// dependencies.
@@ -49,7 +56,7 @@ func importReposFromModules(args language.ImportReposArgs) language.ImportReposR
 	}
 	// path@version can be used as a unique identifier for looking up sums
 	pathToModule := map[string]*module{}
-	data, err := goListModules(dir)
+	data, err := goListModules(tempDir)
 	if err != nil {
 		return language.ImportReposResult{Error: err}
 	}
@@ -99,7 +106,7 @@ func importReposFromModules(args language.ImportReposArgs) language.ImportReposR
 		}
 	}
 	if len(missingSumArgs) > 0 {
-		data, err := goModDownload(dir, missingSumArgs)
+		data, err := goModDownload(tempDir, missingSumArgs)
 		if err != nil {
 			return language.ImportReposResult{Error: err}
 		}
@@ -141,7 +148,7 @@ func importReposFromModules(args language.ImportReposArgs) language.ImportReposR
 
 // goListModules invokes "go list" in a directory containing a go.mod file.
 var goListModules = func(dir string) ([]byte, error) {
-	return runGoCommandForOutput(dir, "list", "-mod=readonly", "-m", "-json", "all")
+	return runGoCommandForOutput(dir, "list", "-m", "-json", "all")
 }
 
 // goModDownload invokes "go mod download" in a directory containing a
@@ -150,6 +157,39 @@ var goModDownload = func(dir string, args []string) ([]byte, error) {
 	dlArgs := []string{"mod", "download", "-json"}
 	dlArgs = append(dlArgs, args...)
 	return runGoCommandForOutput(dir, dlArgs...)
+}
+
+// copyGoModToTemp copies to given go.mod file to a temporary directory.
+// go list tends to mutate go.mod files, but gazelle shouldn't do that.
+func copyGoModToTemp(filename string) (tempDir string, err error) {
+	goModOrig, err := os.Open(filename)
+	if err != nil {
+		return "", err
+	}
+	defer goModOrig.Close()
+
+	tempDir, err = ioutil.TempDir("", "gazelle-temp-gomod")
+	if err != nil {
+		return "", err
+	}
+
+	goModCopy, err := os.Create(filepath.Join(tempDir, "go.mod"))
+	if err != nil {
+		os.Remove(tempDir)
+		return "", err
+	}
+	defer func() {
+		if cerr := goModCopy.Close(); err == nil && cerr != nil {
+			err = cerr
+		}
+	}()
+
+	_, err = io.Copy(goModCopy, goModOrig)
+	if err != nil {
+		os.RemoveAll(tempDir)
+		return "", err
+	}
+	return tempDir, err
 }
 
 // findGoTool attempts to locate the go executable. If GOROOT is set, we'll
